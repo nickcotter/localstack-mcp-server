@@ -48,7 +48,7 @@ export default async function localstackCloudPods({
 }: InferSchema<typeof schema>) {
   return withToolAnalytics("localstack-cloud-pods", { action, pod_name }, async () => {
     const preflightError = await runPreflights([
-      requireAuthToken(),
+      requireAuthToken("Cloud Pods are stored in the LocalStack platform"),
       requireLocalStackRunning(),
       requireProFeature(ProFeature.CLOUD_PODS),
     ]);

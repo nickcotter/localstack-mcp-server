@@ -35,11 +35,19 @@ export const requireProFeature = async (feature: ProFeature): Promise<ToolRespon
     : null;
 };
 
-export const requireAuthToken = (): ToolResponse | null => {
+/**
+ * Gate for the few operations the MCP server itself authenticates with the token
+ * (the LocalStack platform API: Cloud Pods, Ephemeral Instances, the extensions
+ * marketplace). Everything else works without a token: the runtime is started as the
+ * Community image, and Pro-only tools are gated by `requireProFeature` against the
+ * running LocalStack instead.
+ */
+export const requireAuthToken = (reason?: string): ToolResponse | null => {
   if (!process.env.LOCALSTACK_AUTH_TOKEN?.trim()) {
     return ResponseBuilder.error(
       "Auth Token Required",
-      "LOCALSTACK_AUTH_TOKEN is required for this operation."
+      `LOCALSTACK_AUTH_TOKEN is required for this operation${reason ? ` (${reason})` : ""}. ` +
+        "Set it in the MCP server's environment; create one at https://app.localstack.cloud/workspace/auth-tokens."
     );
   }
   return null;

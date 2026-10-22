@@ -3,7 +3,7 @@ import { type ToolMetadata, type InferSchema } from "xmcp";
 import { runCommand, stripAnsiCodes } from "../core/command-runner";
 import path from "path";
 import fs from "fs";
-import { runPreflights, requireAuthToken, requireLocalStackRunning } from "../core/preflight";
+import { runPreflights, requireLocalStackRunning } from "../core/preflight";
 import { DockerApiClient } from "../lib/docker/docker.client";
 import {
   checkDependencies,
@@ -110,7 +110,7 @@ export default async function localstackDeployer({
       saveParams,
     },
     async () => {
-      const preflightError = await runPreflights([requireAuthToken(), requireLocalStackRunning()]);
+      const preflightError = await runPreflights([requireLocalStackRunning()]);
       if (preflightError) return preflightError;
 
       if (action === "create-stack") {

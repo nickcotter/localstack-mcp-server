@@ -57,13 +57,13 @@ export const metadata: ToolMetadata = {
 
 export default async function localstackExtensions({ action, name }: InferSchema<typeof schema>) {
   return withToolAnalytics("localstack-extensions", { action, name }, async () => {
-    // `available` only needs the platform API; the container-touching actions need a
-    // running LocalStack (the extension manager runs inside it) + the Docker daemon.
+    // `available` only needs the platform API (so it is the one action that needs the
+    // token); the container-touching actions need a running, licensed LocalStack (the
+    // extension manager runs inside it) + the Docker daemon.
     const checks =
       action === "available"
-        ? [requireAuthToken()]
+        ? [requireAuthToken("the extensions marketplace is served by the LocalStack platform API")]
         : [
-            requireAuthToken(),
             requireDockerDaemon(),
             requireLocalStackRunning(),
             requireProFeature(ProFeature.EXTENSIONS),

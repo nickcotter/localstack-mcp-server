@@ -25,14 +25,6 @@ const EXPECTED_TOOLS = [
 
 const EXPECTED_PROMPT = "infrastructure-tester";
 
-function requireEnv(name) {
-  const value = process.env[name];
-  if (!value || !value.trim()) {
-    throw new Error(`Missing required environment variable: ${name}`);
-  }
-  return value;
-}
-
 test("exposes all expected LocalStack MCP tools", async ({ mcp }) => {
   const tools = await mcp.listTools();
   const toolNames = tools.map((tool) => tool.name);
@@ -69,8 +61,7 @@ const DOCS_SERVICE_DOWN =
   /Request timed out|Connection refused|HTTP Error: 5\d\d|fetch failed|ECONNRESET|ENOTFOUND|EAI_AGAIN|ETIMEDOUT|socket hang up/i;
 
 test("docs tool returns useful documentation snippets", async ({ mcp }) => {
-  requireEnv("LOCALSTACK_AUTH_TOKEN");
-
+  // The docs tool needs neither a running LocalStack nor an auth token.
   const result = await mcp.callTool("localstack-docs", {
     query: "How to start LocalStack and configure auth token",
     limit: 2,

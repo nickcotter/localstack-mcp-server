@@ -15,6 +15,7 @@ import {
 } from "../docker/docker.client";
 import {
   buildLocalStackContainerSpec,
+  isCommunityImage,
   resolveContainerName,
   resolveVolume,
   stackFromImage,
@@ -409,13 +410,9 @@ async function launchRuntimeInner(
     return ResponseBuilder.markdown(alreadyRunningMessage);
   }
 
-  const authToken = process.env.LOCALSTACK_AUTH_TOKEN?.trim();
-  if (!authToken) {
-    return ResponseBuilder.error(
-      "Auth Token Required",
-      "LOCALSTACK_AUTH_TOKEN is required to start LocalStack."
-    );
-  }
+  // Optional: without a token the AWS stack runs the Community image (no license
+  // activation, Pro-only tools report that they need a licensed runtime).
+  const authToken = process.env.LOCALSTACK_AUTH_TOKEN?.trim() || undefined;
 
   const docker = options.dockerClient ?? new DockerApiClient();
   try {
@@ -557,6 +554,10 @@ async function launchRuntimeInner(
       let resultMessage = `${successTitle}\n\n`;
       if (envVars)
         resultMessage += `✅ Custom environment variables passed to the LocalStack container: ${Object.keys(envVars).join(", ")}\n`;
+      if (!authToken && isCommunityImage(spec.Image))
+        resultMessage +=
+          `ℹ️ Started the LocalStack Community image (${spec.Image}) because LOCALSTACK_AUTH_TOKEN is not set. ` +
+          "Tools that need a LocalStack Pro license will report 'Feature Not Available'; set LOCALSTACK_AUTH_TOKEN for the MCP server and restart LocalStack to switch to the Pro image.\n";
       if (status.statusOutput) resultMessage += `\n**${statusHeading}:**\n${status.statusOutput}`;
       return ResponseBuilder.markdown(resultMessage);
     };

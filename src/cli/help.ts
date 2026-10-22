@@ -11,7 +11,9 @@ init options:
   --method <npx|docker>   How the MCP server should run (default: npx)
   --client <ids>          MCP clients to configure, comma-separated or repeated.
                           Valid: ${ALL_CLIENT_IDS.join(", ")}
-  --token <token>         LocalStack Auth Token (default: $LOCALSTACK_AUTH_TOKEN)
+  --token <token>         LocalStack Auth Token, optional (default: $LOCALSTACK_AUTH_TOKEN).
+                          Without one the server runs the LocalStack Community image;
+                          Pro-only tools (IAM, chaos, pods, ...) need a token.
   --config <pairs>        Extra LocalStack config vars, e.g. "DEBUG=1,PERSISTENCE=1"
   --cache-dir <path>      [docker] Deprecated and ignored (state lives in a named Docker volume)
                           (default: ~/.localstack-mcp)
@@ -34,8 +36,8 @@ Examples:
   npx -y @localstack/localstack-mcp-server init --method docker --client cursor --yes
   npx -y @localstack/localstack-mcp-server remove --client cursor
 
-The auth token is read from $LOCALSTACK_AUTH_TOKEN when --token is not given.
-Get yours at https://app.localstack.cloud/workspace/auth-tokens
+The auth token is read from $LOCALSTACK_AUTH_TOKEN when --token is not given, and
+may be left unset. Get yours at https://app.localstack.cloud/workspace/auth-tokens
 
 The wizard writes and removes only the MCP server entry named "localstack".
 `;

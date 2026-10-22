@@ -1,11 +1,6 @@
 import { z } from "zod";
 import { type ToolMetadata, type InferSchema } from "xmcp";
-import {
-  runPreflights,
-  requireAuthToken,
-  requireLocalStackRunning,
-  requireProFeature,
-} from "../core/preflight";
+import { runPreflights, requireLocalStackRunning, requireProFeature } from "../core/preflight";
 import { ResponseBuilder } from "../core/response-builder";
 import { withToolAnalytics } from "../core/analytics";
 import { ProFeature } from "../lib/localstack/license-checker";
@@ -138,7 +133,6 @@ export default async function localstackAppInspector(params: AppInspectorArgs) {
     buildAppInspectorAnalyticsArgs(params),
     async () => {
       const preflightError = await runPreflights([
-        requireAuthToken(),
         requireLocalStackRunning(),
         requireProFeature(ProFeature.APP_INSPECTOR),
       ]);

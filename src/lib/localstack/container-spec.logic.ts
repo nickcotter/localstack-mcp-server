@@ -3,9 +3,16 @@
  *
  * Replicates what `localstack start` used to assemble via the Python CLI so the MCP
  * server can create the runtime with no CLI installed. Behavioral anchors (verified
- * against the 2026.x `localstack_cli` wheel source):
- *   - image `localstack/localstack-pro:latest` (pro unconditional), `--stack snowflake`
+ * against the LocalStack 3.8.1 sources — `bootstrap.get_docker_image_to_start`,
+ * `config.py`, `docker-entrypoint.sh`):
+ *   - image pinned to LocalStack 3.8.1: `localstack/localstack-pro:3.8.1` when an auth
+ *     token is configured, `localstack/localstack:3.8.1` (Community) otherwise — the
+ *     same token-driven switch the 3.x CLI made; `--stack snowflake`
  *     ⇒ `localstack/snowflake:latest`
+ *   - `LOCALSTACK_IMAGE_TAG` swaps the pinned tag; `LOCALSTACK_IMAGE_NAME`/`IMAGE_NAME`
+ *     replace the whole image
+ *   - `LOCALSTACK_AUTH_TOKEN` is only set in the container when one is configured; the
+ *     Community image needs none
  *   - container name `localstack-main`, also injected as `MAIN_CONTAINER_NAME` env
  *   - ports 4566, 443 (only when GATEWAY_LISTEN is unset) and the external service
  *     range 4510–4560 inclusive; bind host 127.0.0.1 on a host, 0.0.0.0 in Docker
@@ -15,7 +22,12 @@
  */
 
 export const DEFAULT_CONTAINER_NAME = "localstack-main";
-export const DEFAULT_AWS_IMAGE = "localstack/localstack-pro:latest";
+/** The LocalStack release this server targets (the default image tag of the AWS stack). */
+export const DEFAULT_LOCALSTACK_VERSION = "3.8.1";
+export const AWS_PRO_IMAGE_REPOSITORY = "localstack/localstack-pro";
+export const AWS_COMMUNITY_IMAGE_REPOSITORY = "localstack/localstack";
+export const DEFAULT_AWS_PRO_IMAGE = `${AWS_PRO_IMAGE_REPOSITORY}:${DEFAULT_LOCALSTACK_VERSION}`;
+export const DEFAULT_AWS_COMMUNITY_IMAGE = `${AWS_COMMUNITY_IMAGE_REPOSITORY}:${DEFAULT_LOCALSTACK_VERSION}`;
 export const DEFAULT_SNOWFLAKE_IMAGE = "localstack/snowflake:latest";
 export const DEFAULT_AZURE_IMAGE = "localstack/localstack-azure:latest";
 export const DEFAULT_GATEWAY_CONTAINER_PORT = 4566;
@@ -41,6 +53,7 @@ const CLIENT_ONLY_ENV_KEYS = new Set([
   "LOCALSTACK_AUTH_TOKEN", // re-added deliberately as a reserved key
   "LOCALSTACK_API_KEY",
   "LOCALSTACK_IMAGE_NAME", // selects the image; not runtime config
+  "LOCALSTACK_IMAGE_TAG", // selects the image tag; not runtime config
   "LOCALSTACK_VOLUME_DIR", // host-side path; meaningless inside the container
   // The Azure client tool's settings: the entrypoint would re-export them unprefixed.
   "LOCALSTACK_AZURE_IMAGE_NAME",
@@ -103,7 +116,11 @@ export interface ContainerSpecInput {
   /** Tool-level env overrides (`envVars` argument of localstack-management start). */
   envVars?: Record<string, string>;
   hostEnv: Record<string, string | undefined>;
-  authToken: string;
+  /**
+   * The LocalStack Auth Token, when one is configured. Without it the AWS stack runs
+   * the Community image and no token reaches the container.
+   */
+  authToken?: string;
   /** Whether the MCP server itself runs inside a container (changes bind IP + volume). */
   isInDocker: boolean;
   volume: VolumeResolution;
@@ -132,15 +149,37 @@ export interface LocalStackContainerSpec {
   };
 }
 
+export interface ResolveImageOptions {
+  /** Whether a LocalStack Auth Token is configured: picks the Pro image over Community. */
+  hasAuthToken?: boolean;
+}
+
+/**
+ * The image to start for a stack. For the AWS stack this mirrors the 3.x CLI: the Pro
+ * image when an auth token is configured, the Community image otherwise, both pinned
+ * to {@link DEFAULT_LOCALSTACK_VERSION} unless `LOCALSTACK_IMAGE_TAG` says otherwise.
+ * An explicit `LOCALSTACK_IMAGE_NAME` / `IMAGE_NAME` replaces the whole image.
+ */
 export function resolveImage(
   stack: LocalStackStack,
-  hostEnv: Record<string, string | undefined>
+  hostEnv: Record<string, string | undefined>,
+  options: ResolveImageOptions = {}
 ): string {
   if (stack === "snowflake") return DEFAULT_SNOWFLAKE_IMAGE;
   // Only the Azure override: an AWS IMAGE_NAME must not replace the Azure image.
   if (stack === "azure") return hostEnv.LOCALSTACK_AZURE_IMAGE_NAME?.trim() || DEFAULT_AZURE_IMAGE;
   const override = hostEnv.LOCALSTACK_IMAGE_NAME?.trim() || hostEnv.IMAGE_NAME?.trim();
-  return override || DEFAULT_AWS_IMAGE;
+  if (override) return override;
+  const tag = hostEnv.LOCALSTACK_IMAGE_TAG?.trim() || DEFAULT_LOCALSTACK_VERSION;
+  const repository = options.hasAuthToken
+    ? AWS_PRO_IMAGE_REPOSITORY
+    : AWS_COMMUNITY_IMAGE_REPOSITORY;
+  return `${repository}:${tag}`;
+}
+
+/** Whether an image is the Community (unlicensed) LocalStack image. */
+export function isCommunityImage(image?: string): boolean {
+  return /(^|\/)localstack\/localstack(:|@|$)/.test(image || "");
 }
 
 /** Which stack a LocalStack container image belongs to (undefined when unknown). */
@@ -436,7 +475,9 @@ function buildEnv(input: ContainerSpecInput, ports: ResolvedPorts, name: string)
   env.set("EXTERNAL_SERVICE_PORTS_START", String(ports.servicePortStart));
   env.set("EXTERNAL_SERVICE_PORTS_END", String(ports.servicePortEnd));
   env.set("DOCKER_HOST", `unix://${DOCKER_SOCKET_CONTAINER_PATH}`);
-  env.set("LOCALSTACK_AUTH_TOKEN", input.authToken);
+  // Optional: the Community image needs no token, and an empty LOCALSTACK_AUTH_TOKEN
+  // would make the Pro entrypoint attempt (and fail) a license activation.
+  if (input.authToken) env.set("LOCALSTACK_AUTH_TOKEN", input.authToken);
   env.set("LOCALSTACK_CLIENT_NAME", "localstack-mcp-server");
   env.set("LOCALSTACK_CLIENT_VERSION", input.serverVersion);
   const aiAgent = detectAiAgent(hostEnv);
@@ -464,7 +505,9 @@ function buildEnv(input: ContainerSpecInput, ports: ResolvedPorts, name: string)
 
 export function buildLocalStackContainerSpec(input: ContainerSpecInput): LocalStackContainerSpec {
   const name = input.containerNameOverride?.trim() || resolveContainerName(input.hostEnv);
-  const image = input.imageOverride?.trim() || resolveImage(input.stack, input.hostEnv);
+  const image =
+    input.imageOverride?.trim() ||
+    resolveImage(input.stack, input.hostEnv, { hasAuthToken: Boolean(input.authToken) });
   const ports = resolvePorts(input);
 
   const exposedPorts: Record<string, Record<string, never>> = {};

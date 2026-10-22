@@ -1,12 +1,7 @@
 import { z } from "zod";
 import { type ToolMetadata, type InferSchema } from "xmcp";
 import { ResponseBuilder } from "../core/response-builder";
-import {
-  runPreflights,
-  requireAuthToken,
-  requireLocalStackRunning,
-  requireProFeature,
-} from "../core/preflight";
+import { runPreflights, requireLocalStackRunning, requireProFeature } from "../core/preflight";
 import { withToolAnalytics } from "../core/analytics";
 import { ProFeature } from "../lib/localstack/license-checker";
 import {
@@ -97,7 +92,6 @@ export default async function localstackAwsReplicator(args: AwsReplicatorArgs) {
     },
     async () => {
       const preflightError = await runPreflights([
-        requireAuthToken(),
         requireLocalStackRunning(),
         requireProFeature(ProFeature.REPLICATOR),
       ]);

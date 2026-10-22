@@ -76,7 +76,7 @@ export default async function localstackEphemeralInstances({
       envVarKeys: envVars ? Object.keys(envVars) : [],
     },
     async () => {
-      const authError = requireAuthToken();
+      const authError = requireAuthToken("Ephemeral Instances live in the LocalStack platform");
       if (authError) return authError;
 
       // Ephemeral instances are cloud-hosted: everything goes through the LocalStack

@@ -111,10 +111,19 @@ async function resolveMethod(
   return method;
 }
 
+const NO_TOKEN_NOTE =
+  "The server will run the LocalStack Community image. Tools that need LocalStack Pro (IAM enforcement, chaos, Cloud Pods, state export, extensions, Snowflake, Azure) need a token — create one at https://app.localstack.cloud/workspace/auth-tokens";
+
+/**
+ * The auth token is optional. Flag, then environment, then (interactively) a prompt
+ * that may be skipped; a run without a token configures the server without
+ * LOCALSTACK_AUTH_TOKEN at all.
+ */
 async function resolveToken(
   flagToken: string | undefined,
-  interactive: boolean
-): Promise<string | null> {
+  interactive: boolean,
+  yes: boolean
+): Promise<string | undefined> {
   if (flagToken?.trim()) return flagToken.trim();
 
   const fromEnv = process.env[AUTH_TOKEN_ENV]?.trim();
@@ -123,19 +132,23 @@ async function resolveToken(
     return fromEnv;
   }
 
-  if (!interactive) {
-    p.log.error(
-      `No LocalStack Auth Token found. Set ${AUTH_TOKEN_ENV} or pass --token. Create one at https://app.localstack.cloud/workspace/auth-tokens`
-    );
-    return null;
+  if (!interactive || yes) {
+    p.log.info(`No LocalStack Auth Token given (${AUTH_TOKEN_ENV} or --token). ${NO_TOKEN_NOTE}`);
+    return undefined;
   }
 
-  const token = preWriteAnswer(
-    await p.password({
-      message: `Paste your ${AUTH_TOKEN_ENV}`,
-      validate: (value) => (value && value.trim() ? undefined : "An auth token is required"),
-    })
+  const token = (
+    preWriteAnswer(
+      await p.password({
+        message: `Paste your ${AUTH_TOKEN_ENV} (optional — press Enter to skip)`,
+      })
+    ) ?? ""
   ).trim();
+
+  if (!token) {
+    p.log.info(`No token entered. ${NO_TOKEN_NOTE}`);
+    return undefined;
+  }
 
   if (!token.startsWith("ls-")) {
     p.log.warn(
@@ -450,8 +463,7 @@ export async function runInit(argv: string[]): Promise<number> {
     return EXIT_ERROR;
   }
 
-  const token = await resolveToken(flags.token, interactive);
-  if (token === null) return abort();
+  const token = await resolveToken(flags.token, interactive, flags.yes);
 
   const docker =
     method === "docker"
