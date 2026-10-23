@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { type InferSchema, type ToolExtraArguments, type ToolMetadata } from "xmcp";
-import { requireAuthToken, runPreflights } from "../core/preflight";
+import { runPreflights } from "../core/preflight";
 import { ResponseBuilder } from "../core/response-builder";
 import { withToolAnalytics } from "../core/analytics";
 import { formatAzResult } from "../lib/azure/output";
@@ -42,8 +42,9 @@ export default async function localstackAzureClient(
 ) {
   return withToolAnalytics("localstack-azure-client", { command }, async () => {
     try {
-      // The token, the settings and the policy first: a refusal needs no emulator.
-      const early = requireAuthToken() ?? requireAzureConfig();
+      // The settings and the policy first: a refusal needs no emulator. No token is
+      // checked here: the emulator's own health reports a missing license.
+      const early = requireAzureConfig();
       if (early) return early;
       const policy = evaluateAzCommand(command);
       if (!policy.ok) return ResponseBuilder.error(policy.title, policy.message);

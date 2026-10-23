@@ -28,7 +28,8 @@ export interface DockerOptions {
 
 export interface WizardAnswers {
   method: InstallMethod;
-  token: string;
+  /** Optional: without a token the server runs the LocalStack Community image. */
+  token?: string;
   extraEnv: Record<string, string>;
   docker?: DockerOptions;
   clients: ClientId[];

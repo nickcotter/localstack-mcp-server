@@ -13,12 +13,7 @@ import {
   type ContainerMetadata,
 } from "../lib/docker/docker.client";
 import { stackFromImage, type VolumeResolution } from "../lib/localstack/container-spec.logic";
-import {
-  runPreflights,
-  requireProFeature,
-  requireAuthToken,
-  requireDockerDaemon,
-} from "../core/preflight";
+import { runPreflights, requireProFeature, requireDockerDaemon } from "../core/preflight";
 import { ResponseBuilder } from "../core/response-builder";
 import { ProFeature } from "../lib/localstack/license-checker";
 import { withToolAnalytics } from "../core/analytics";
@@ -71,9 +66,10 @@ export default async function localstackManagement({
   envVars,
 }: InferSchema<typeof schema>) {
   return withToolAnalytics("localstack-management", { action, service, envVars }, async () => {
+    // No auth token is required: without one, `start` launches the Community image.
     const checks: Array<
-      ReturnType<typeof requireAuthToken> | Promise<ReturnType<typeof requireAuthToken>>
-    > = [requireAuthToken()];
+      ReturnType<typeof requireDockerDaemon> | Awaited<ReturnType<typeof requireDockerDaemon>>
+    > = [];
 
     if (action === "start" || action === "restart" || action === "stop") {
       checks.push(requireDockerDaemon());

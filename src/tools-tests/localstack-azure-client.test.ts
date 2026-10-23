@@ -55,10 +55,13 @@ describe("localstack-azure-client", () => {
     expect(runAzCommand).not.toHaveBeenCalled();
   });
 
-  test("the token and the settings come before the policy", async () => {
+  test("no auth token is required by the tool itself", async () => {
     delete process.env.LOCALSTACK_AUTH_TOKEN;
-    expect(text(await call("group list"))).toContain("Auth Token Required");
+    expect(text(await call('az group list --query "[].name"'))).toBe('[{"name": "rg"}]');
     process.env.LOCALSTACK_AUTH_TOKEN = "ls-test-token";
+  });
+
+  test("the settings come before the policy", async () => {
     jest.mocked(preflight.requireAzureConfig).mockReturnValueOnce({
       content: [{ type: "text", text: "❌ **Azure Tool Configuration Error**" }],
     });

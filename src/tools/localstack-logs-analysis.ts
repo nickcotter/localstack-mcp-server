@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { type ToolMetadata, type InferSchema } from "xmcp";
 import { LocalStackLogRetriever, type LogEntry } from "../lib/logs/log-retriever";
-import { runPreflights, requireAuthToken, requireLocalStackRunning } from "../core/preflight";
+import { runPreflights, requireLocalStackRunning } from "../core/preflight";
 import { ResponseBuilder } from "../core/response-builder";
 import { withToolAnalytics } from "../core/analytics";
 
@@ -56,7 +56,7 @@ export default async function localstackLogsAnalysis({
     "localstack-logs-analysis",
     { analysisType, lines, service, operation, filter },
     async () => {
-      const preflightError = await runPreflights([requireAuthToken(), requireLocalStackRunning()]);
+      const preflightError = await runPreflights([requireLocalStackRunning()]);
       if (preflightError) return preflightError;
 
       const retriever = new LocalStackLogRetriever();

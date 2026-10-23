@@ -20,6 +20,11 @@ describe("buildNpxServerSpec", () => {
       PERSISTENCE: "1",
     });
   });
+
+  it("leaves LOCALSTACK_AUTH_TOKEN out entirely when no token is given", () => {
+    expect(buildNpxServerSpec(undefined).env).toEqual({});
+    expect(buildNpxServerSpec("   ", { DEBUG: "1" }).env).toEqual({ DEBUG: "1" });
+  });
 });
 
 describe("buildDockerServerSpec", () => {
@@ -67,6 +72,17 @@ describe("buildDockerServerSpec", () => {
     expect(spec.args[debugFlagIndex - 1]).toBe("-e");
     expect(spec.args).not.toContain("DEBUG=1");
     expect(spec.env.DEBUG).toBe("1");
+  });
+
+  it("skips the token pass-through flag when no token is given", () => {
+    const spec = buildDockerServerSpec(undefined, { DEBUG: "1" }, options);
+    expect(spec.args).not.toContain("LOCALSTACK_AUTH_TOKEN");
+    expect(spec.env).toEqual({ DEBUG: "1" });
+    // The remaining flags keep their order.
+    const hostnameIndex = spec.args.indexOf("LOCALSTACK_HOSTNAME=host.docker.internal");
+    expect(spec.args[hostnameIndex - 1]).toBe("-e");
+    expect(spec.args[hostnameIndex + 1]).toBe("-e");
+    expect(spec.args[hostnameIndex + 2]).toBe("DEBUG");
   });
 
   it("respects a custom image tag", () => {

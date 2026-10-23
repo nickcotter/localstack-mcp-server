@@ -26,8 +26,8 @@
       },
       "environmentVariables": [
         {
-          "description": "LocalStack Auth Token (required for all LocalStack MCP tools)",
-          "isRequired": true,
+          "description": "LocalStack Auth Token (optional). Without it the server starts the LocalStack Community image (3.8.1) and the Pro-only tools (IAM, chaos, Cloud Pods, state export, extensions, Snowflake, Azure, ephemeral instances) are unavailable.",
+          "isRequired": false,
           "format": "string",
           "isSecret": true,
           "name": "LOCALSTACK_AUTH_TOKEN"
@@ -103,11 +103,18 @@
           "name": "APP_INSPECTOR"
         },
         {
-          "description": "Docker image the management start action launches for the AWS stack (LOCALSTACK_IMAGE_NAME wins over IMAGE_NAME). Defaults to localstack/localstack-pro:latest.",
+          "description": "Docker image the management start action launches for the AWS stack (LOCALSTACK_IMAGE_NAME wins over IMAGE_NAME). Defaults to localstack/localstack-pro:3.8.1 when LOCALSTACK_AUTH_TOKEN is set and localstack/localstack:3.8.1 (Community) otherwise.",
           "isRequired": false,
           "format": "string",
           "isSecret": false,
           "name": "LOCALSTACK_IMAGE_NAME"
+        },
+        {
+          "description": "Tag of the default AWS-stack image (Pro or Community, depending on LOCALSTACK_AUTH_TOKEN). Defaults to 3.8.1.",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false,
+          "name": "LOCALSTACK_IMAGE_TAG"
         },
         {
           "description": "Host directory mounted at /var/lib/localstack in the LocalStack container. Defaults to the per-OS cache path the LocalStack CLI used; inside Docker it defaults to the localstack-mcp named volume.",

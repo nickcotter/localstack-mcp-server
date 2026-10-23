@@ -116,10 +116,21 @@ describe("localstack-management", () => {
     expect(text(result)).toMatch(/not running — no container to stop/);
   });
 
-  test("requires the auth token", async () => {
+  test("works without the auth token (no 'Auth Token Required' gate)", async () => {
     delete process.env.LOCALSTACK_AUTH_TOKEN;
+    mockedGetStatus.mockResolvedValue({ isRunning: false, isReady: false });
     const result = await localstackManagement({ action: "status", service: "aws" } as any);
-    expect(text(result)).toContain("LOCALSTACK_AUTH_TOKEN");
+    expect(text(result)).not.toContain("Auth Token Required");
+    expect(text(result)).toContain("LocalStack Status");
+  });
+
+  test("start works without the auth token", async () => {
+    delete process.env.LOCALSTACK_AUTH_TOKEN;
+    mockDocker({ ping: jest.fn().mockResolvedValue(undefined) });
+    jest.mocked(launchRuntime).mockResolvedValue({ content: [{ type: "text", text: "started" }] });
+    const result = await localstackManagement({ action: "start", service: "aws" } as any);
+    expect(text(result)).toBe("started");
+    expect(launchRuntime).toHaveBeenCalledWith(expect.objectContaining({ stack: "aws" }));
   });
 
   test("start service=azure launches the Azure stack with its own health and licence checks", async () => {

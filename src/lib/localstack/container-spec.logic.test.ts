@@ -1,6 +1,7 @@
 import {
   buildLocalStackContainerSpec,
   detectAiAgent,
+  isCommunityImage,
   parseGatewayListen,
   resolveContainerName,
   resolveImage,
@@ -28,8 +29,22 @@ const envMap = (spec: ReturnType<typeof buildLocalStackContainerSpec>) =>
   );
 
 describe("resolveImage", () => {
-  test("defaults to the pro image for the aws stack", () => {
-    expect(resolveImage("aws", {})).toBe("localstack/localstack-pro:latest");
+  test("defaults to the pro image pinned to LocalStack 3.8.1 when an auth token is set", () => {
+    expect(resolveImage("aws", {}, { hasAuthToken: true })).toBe("localstack/localstack-pro:3.8.1");
+  });
+
+  test("defaults to the community image pinned to LocalStack 3.8.1 without an auth token", () => {
+    expect(resolveImage("aws", {})).toBe("localstack/localstack:3.8.1");
+    expect(resolveImage("aws", {}, { hasAuthToken: false })).toBe("localstack/localstack:3.8.1");
+  });
+
+  test("LOCALSTACK_IMAGE_TAG swaps the pinned tag for both editions", () => {
+    expect(resolveImage("aws", { LOCALSTACK_IMAGE_TAG: "3.8.0" })).toBe(
+      "localstack/localstack:3.8.0"
+    );
+    expect(resolveImage("aws", { LOCALSTACK_IMAGE_TAG: " 3.8.0 " }, { hasAuthToken: true })).toBe(
+      "localstack/localstack-pro:3.8.0"
+    );
   });
 
   test("honors LOCALSTACK_IMAGE_NAME over IMAGE_NAME", () => {
@@ -37,6 +52,14 @@ describe("resolveImage", () => {
       resolveImage("aws", { LOCALSTACK_IMAGE_NAME: "my/img:1", IMAGE_NAME: "other/img:2" })
     ).toBe("my/img:1");
     expect(resolveImage("aws", { IMAGE_NAME: "other/img:2" })).toBe("other/img:2");
+    // A full image name wins over the tag and the edition switch.
+    expect(
+      resolveImage(
+        "aws",
+        { IMAGE_NAME: "other/img:2", LOCALSTACK_IMAGE_TAG: "9.9" },
+        { hasAuthToken: true }
+      )
+    ).toBe("other/img:2");
   });
 
   test("snowflake stack always uses the snowflake image (stack wins over IMAGE_NAME)", () => {
@@ -59,6 +82,49 @@ describe("stackFromImage", () => {
     expect(stackFromImage("localstack/localstack-azure-alpha@sha256:ab")).toBe("azure");
     expect(stackFromImage("localstack/snowflake:latest")).toBe("snowflake");
     expect(stackFromImage("localstack/localstack-pro:latest")).toBe("aws");
+    expect(stackFromImage("localstack/localstack:3.8.1")).toBe("aws");
+  });
+});
+
+describe("isCommunityImage", () => {
+  test("recognizes the community image only", () => {
+    expect(isCommunityImage("localstack/localstack:3.8.1")).toBe(true);
+    expect(isCommunityImage("registry.example.com/localstack/localstack@sha256:ab")).toBe(true);
+    expect(isCommunityImage("localstack/localstack-pro:3.8.1")).toBe(false);
+    expect(isCommunityImage("localstack/snowflake:latest")).toBe(false);
+    expect(isCommunityImage(undefined)).toBe(false);
+  });
+});
+
+describe("auth token", () => {
+  test("without a token: the community image starts and no LOCALSTACK_AUTH_TOKEN reaches the container", () => {
+    const spec = buildLocalStackContainerSpec(
+      baseInput({
+        authToken: undefined,
+        hostEnv: { LOCALSTACK_AUTH_TOKEN: "ls-stale-host-token", LOCALSTACK_API_KEY: "old" },
+      })
+    );
+    expect(spec.Image).toBe("localstack/localstack:3.8.1");
+    const env = envMap(spec);
+    expect(env.LOCALSTACK_AUTH_TOKEN).toBeUndefined();
+    expect(env.LOCALSTACK_API_KEY).toBeUndefined();
+    expect(spec.Env.some((entry) => entry.startsWith("LOCALSTACK_AUTH_TOKEN="))).toBe(false);
+  });
+
+  test("with a token: the pro image starts and the token is set once in the container", () => {
+    const spec = buildLocalStackContainerSpec(baseInput({ authToken: "ls-real-token" }));
+    expect(spec.Image).toBe("localstack/localstack-pro:3.8.1");
+    expect(spec.Env.filter((entry) => entry.startsWith("LOCALSTACK_AUTH_TOKEN="))).toEqual([
+      "LOCALSTACK_AUTH_TOKEN=ls-real-token",
+    ]);
+  });
+
+  test("LOCALSTACK_IMAGE_TAG is a client-side selector and never reaches the container", () => {
+    const spec = buildLocalStackContainerSpec(
+      baseInput({ hostEnv: { LOCALSTACK_IMAGE_TAG: "3.8.0" } })
+    );
+    expect(spec.Image).toBe("localstack/localstack-pro:3.8.0");
+    expect(envMap(spec).LOCALSTACK_IMAGE_TAG).toBeUndefined();
   });
 });
 

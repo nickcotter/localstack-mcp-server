@@ -70,7 +70,7 @@ function mockDockerClient(overrides: Record<string, jest.Mock> = {}) {
     findLocalStackContainer: jest.fn().mockResolvedValue("container-123"),
     inspectContainer: jest
       .fn()
-      .mockResolvedValue({ id: "container-123", image: "localstack/localstack-pro:latest" }),
+      .mockResolvedValue({ id: "container-123", image: "localstack/localstack-pro:3.8.1" }),
     stopContainer: jest.fn().mockResolvedValue(undefined),
     removeContainer: jest.fn().mockResolvedValue(undefined),
     waitForRemoval: jest.fn().mockResolvedValue(undefined),
@@ -293,7 +293,7 @@ describe("localstack.utils", () => {
       );
       expect(client.createAndStartContainer).toHaveBeenCalledTimes(1);
       const spec = client.createAndStartContainer.mock.calls[0][0];
-      expect(spec.Image).toBe("localstack/localstack-pro:latest");
+      expect(spec.Image).toBe("localstack/localstack-pro:3.8.1");
       expect(spec.name).toBe("localstack-main");
     });
 
@@ -307,7 +307,7 @@ describe("localstack.utils", () => {
         .mockResolvedValue({ isRunning: true, isReady: true });
 
       await launchRuntime({ ...launchDefaults, getStatus, dockerClient: client });
-      expect(client.pullImage).toHaveBeenCalledWith("localstack/localstack-pro:latest");
+      expect(client.pullImage).toHaveBeenCalledWith("localstack/localstack-pro:3.8.1");
     });
 
     test("reports an actionable conflict when the container name is already running", async () => {
@@ -468,15 +468,36 @@ describe("localstack.utils", () => {
       expect(result.content[0].text).toContain("Feature Not Available");
     });
 
-    test("fails cleanly when the auth token is missing", async () => {
+    test("starts the community image when no auth token is set", async () => {
       delete process.env.LOCALSTACK_AUTH_TOKEN;
       const { client } = mockDockerClient();
-      const result = await launchRuntime({
-        ...launchDefaults,
-        getStatus: jest.fn().mockResolvedValue({ isRunning: false }),
-        dockerClient: client,
-      });
-      expect(result.content[0].text).toContain("LOCALSTACK_AUTH_TOKEN");
+      const getStatus = jest
+        .fn()
+        .mockResolvedValueOnce({ isRunning: false })
+        .mockResolvedValue({ isRunning: true, isReady: true, statusOutput: "gateway reachable" });
+      const result = await launchRuntime({ ...launchDefaults, getStatus, dockerClient: client });
+
+      const text = result.content[0].text;
+      expect(text).toContain("started successfully");
+      expect(text).toContain("Community image");
+      expect(client.createAndStartContainer).toHaveBeenCalledTimes(1);
+      const spec = client.createAndStartContainer.mock.calls[0][0];
+      expect(spec.Image).toBe("localstack/localstack:3.8.1");
+      expect(spec.Env.some((entry: string) => entry.startsWith("LOCALSTACK_AUTH_TOKEN="))).toBe(
+        false
+      );
+    });
+
+    test("a blank auth token counts as none", async () => {
+      process.env.LOCALSTACK_AUTH_TOKEN = "   ";
+      const { client } = mockDockerClient();
+      const getStatus = jest
+        .fn()
+        .mockResolvedValueOnce({ isRunning: false })
+        .mockResolvedValue({ isRunning: true, isReady: true });
+      await launchRuntime({ ...launchDefaults, getStatus, dockerClient: client });
+      const spec = client.createAndStartContainer.mock.calls[0][0];
+      expect(spec.Image).toBe("localstack/localstack:3.8.1");
     });
 
     test("rejects an explicitly configured DOCKER_SOCK that does not exist", async () => {
@@ -637,7 +658,7 @@ describe("localstack.utils", () => {
         inspectContainer: jest.fn().mockResolvedValue({
           id: "old-id",
           name: "localstack-aws",
-          image: "localstack/localstack-pro:latest",
+          image: "localstack/localstack-pro:3.8.1",
           // named volume avoids a real host mkdir side effect in this integration test;
           // the bind-source preservation is covered by the deriveRecreateOverrides tests.
           mounts: [{ type: "volume", name: "localstack-mcp", destination: "/var/lib/localstack" }],
@@ -666,7 +687,7 @@ describe("localstack.utils", () => {
       expect(client.waitForRemoval).toHaveBeenCalledWith("old-id");
       const spec = client.createAndStartContainer.mock.calls[0][0];
       expect(spec.name).toBe("localstack-aws");
-      expect(spec.Image).toBe("localstack/localstack-pro:latest");
+      expect(spec.Image).toBe("localstack/localstack-pro:3.8.1");
       expect(result.content[0].text).toContain("recreated successfully");
     });
   });

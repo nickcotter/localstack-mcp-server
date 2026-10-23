@@ -3,12 +3,7 @@ import { type ToolMetadata, type InferSchema } from "xmcp";
 import { ProFeature } from "../lib/localstack/license-checker";
 import { ChaosApiClient } from "../lib/localstack/localstack.client";
 import { ResponseBuilder } from "../core/response-builder";
-import {
-  runPreflights,
-  requireAuthToken,
-  requireLocalStackRunning,
-  requireProFeature,
-} from "../core/preflight";
+import { runPreflights, requireLocalStackRunning, requireProFeature } from "../core/preflight";
 import { withToolAnalytics } from "../core/analytics";
 
 // Define the fault rule schema
@@ -136,7 +131,6 @@ export default async function localstackChaosInjector({
     { action, rules_count: rules?.length, latency_ms },
     async () => {
       const preflightError = await runPreflights([
-        requireAuthToken(),
         requireLocalStackRunning(),
         requireProFeature(ProFeature.CHAOS_ENGINEERING),
       ]);

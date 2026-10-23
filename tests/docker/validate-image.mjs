@@ -27,7 +27,8 @@
  * Env knobs:
  *   HARNESS_DEPLOY_DIR   In-container path to the terraform sample (default /work/data/sample-terraform)
  *   HARNESS_CDK_DIR      In-container path to the CDK sample (default /work/data/sample-cdk)
- *   HARNESS_TOKEN_REAL   "1" if LOCALSTACK_AUTH_TOKEN is a real/valid token (affects Pro-tool expectations)
+ *   HARNESS_TOKEN_REAL   "1" if LOCALSTACK_AUTH_TOKEN is a real/valid token (affects Pro-tool expectations;
+ *                        without a token the server runs the LocalStack Community image)
  *   HARNESS_SKIP         Comma-separated scenario keys to skip (e.g. "deploy,extensions")
  *   HARNESS_NO_CLEANUP   "1" to leave LocalStack running afterwards
  *   HARNESS_RUN_REMOTE   "1" to create remote resources (Cloud Pods, ephemeral instances)
@@ -184,8 +185,8 @@ const hasAwsCreds = () =>
   ) &&
   Boolean(
     process.env.AWS_REPLICATOR_SOURCE_REGION_NAME ||
-      process.env.AWS_DEFAULT_REGION ||
-      process.env.AWS_REGION
+    process.env.AWS_DEFAULT_REGION ||
+    process.env.AWS_REGION
   );
 
 function gracefulProGate(result) {
@@ -293,7 +294,7 @@ async function main() {
     }
   }
 
-  // 3. docs (token-only; calls an external API, so retry once for transient blips). An outage of
+  // 3. docs (needs no token and no runtime; calls an external API, so retry once for transient blips). An outage of
   // that service itself is a warning: it says nothing about this image.
   if (!SKIP.has("docs")) {
     try {

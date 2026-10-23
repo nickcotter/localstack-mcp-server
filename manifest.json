@@ -101,8 +101,7 @@
     {
       "name": "localstack-start",
       "description": "Start LocalStack",
-      "arguments": ["auth_token"],
-      "text": "Start my LocalStack container with the auth token ${arguments.auth_token}."
+      "text": "Start my LocalStack container."
     },
     {
       "name": "localstack-stop",

@@ -11,22 +11,36 @@ export function windowsSpawnSafeSpec(spec: ServerSpec): ServerSpec {
   return { command: "cmd", args: ["/c", spec.command, ...spec.args], env: spec.env };
 }
 
+/**
+ * The server's env block. The auth token is optional: without one the entry carries
+ * no LOCALSTACK_AUTH_TOKEN at all (the server then runs the Community image), rather
+ * than an empty value that LocalStack would try to activate.
+ */
+function buildServerEnv(
+  token: string | undefined,
+  extraEnv: Record<string, string>
+): Record<string, string> {
+  const trimmed = token?.trim();
+  return { ...(trimmed ? { [AUTH_TOKEN_ENV]: trimmed } : {}), ...extraEnv };
+}
+
 export function buildNpxServerSpec(
-  token: string,
+  token: string | undefined,
   extraEnv: Record<string, string> = {}
 ): ServerSpec {
   return {
     command: "npx",
     args: ["-y", NPM_PACKAGE],
-    env: { [AUTH_TOKEN_ENV]: token, ...extraEnv },
+    env: buildServerEnv(token, extraEnv),
   };
 }
 
 export function buildDockerServerSpec(
-  token: string,
+  token: string | undefined,
   extraEnv: Record<string, string>,
   options: DockerOptions
 ): ServerSpec {
+  const env = buildServerEnv(token, extraEnv);
   const args = [
     "run",
     "-i",
@@ -39,11 +53,9 @@ export function buildDockerServerSpec(
     "s3.host.docker.internal:host-gateway",
     "--add-host",
     "snowflake.localhost.localstack.cloud:host-gateway",
-    "-e",
-    AUTH_TOKEN_ENV,
-    "-e",
-    "LOCALSTACK_HOSTNAME=host.docker.internal",
   ];
+  if (AUTH_TOKEN_ENV in env) args.push("-e", AUTH_TOKEN_ENV);
+  args.push("-e", "LOCALSTACK_HOSTNAME=host.docker.internal");
 
   // Extra config vars are forwarded into the server container from the env
   // block; values stay out of the args so client UIs don't display them.
@@ -57,9 +69,5 @@ export function buildDockerServerSpec(
 
   args.push(`${DOCKER_IMAGE}:${options.imageTag}`);
 
-  return {
-    command: "docker",
-    args,
-    env: { [AUTH_TOKEN_ENV]: token, ...extraEnv },
-  };
+  return { command: "docker", args, env };
 }
