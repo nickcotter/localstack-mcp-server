@@ -6,6 +6,8 @@
 
 **Let an AI agent manage and interact with LocalStack on your machine.**
 
+**Fork of [localstack/localstack-mcp-server](https://github.com/localstack/localstack-mcp-server) aimed at LocalStack 3.8.1 — no auth token required.**
+
 [![npm version](https://img.shields.io/npm/v/@localstack/localstack-mcp-server)](https://www.npmjs.com/package/@localstack/localstack-mcp-server)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
 [![MCP Registry](https://img.shields.io/badge/MCP%20Registry-localstack-blue)](https://registry.modelcontextprotocol.io/)
@@ -13,7 +15,16 @@
 </div>
 
 > [!IMPORTANT]
-> The LocalStack MCP server is currently available as an experimental public preview. For questions, issues or feedback, please utilize the [LocalStack Community slack](https://slack.localstack.cloud) or submit a [GitHub Issue](https://github.com/localstack/localstack-mcp-server/issues)
+> **What this fork changes compared to the upstream LocalStack MCP server:**
+>
+> - **No auth token required.** `LOCALSTACK_AUTH_TOKEN` is optional. Without it the server starts the LocalStack **Community** image and the lifecycle, deployment, `awslocal`, log-analysis and docs tools all work. Set a token to start LocalStack **Pro** and unlock the Pro-only tools (IAM, chaos, Cloud Pods, state export, extensions, Snowflake, Azure, ephemeral instances).
+> - **Aimed at LocalStack 3.8.1.** The `start` action launches `localstack/localstack:3.8.1` (no token) or `localstack/localstack-pro:3.8.1` (token set) instead of `latest`. Override the tag with `LOCALSTACK_IMAGE_TAG` or the whole image with `LOCALSTACK_IMAGE_NAME`.
+> - Two tools target APIs newer than 3.8.1 (App Inspector, the AWS Replicator job API) and report a clear error on this release.
+>
+> Details in [LocalStack version and editions](#localstack-version-and-editions).
+
+> [!NOTE]
+> The upstream LocalStack MCP server is an experimental public preview. For questions, issues or feedback on the upstream project, use the [LocalStack Community slack](https://slack.localstack.cloud) or submit a [GitHub Issue](https://github.com/localstack/localstack-mcp-server/issues); for this fork, open an issue on [nickcotter/localstack-mcp-server](https://github.com/nickcotter/localstack-mcp-server/issues).
 
 LocalStack emulates the cloud on your local machine so software teams and AI agents can validate security, quality, and reliability faster and more safely than the cloud allows. This [Model Context Protocol](https://modelcontextprotocol.io/docs/getting-started/intro) (MCP) server lets any MCP client (Cursor, Claude, VS Code, and more) start LocalStack, deploy infrastructure, and debug your local cloud in natural language.
 
@@ -58,7 +69,7 @@ This server eliminates custom scripts and manual LocalStack management. Your age
 
 ## LocalStack version and editions
 
-This fork targets **LocalStack 3.8.1**. The `start` action of `localstack-management` launches an image pinned to that release, and which edition it picks depends on whether an auth token is configured (the same switch the LocalStack 3.x CLI made):
+This fork targets **LocalStack 3.8.1** and needs **no auth token**. The `start` action of `localstack-management` launches an image pinned to that release, and which edition it picks depends on whether an auth token is configured (the same switch the LocalStack 3.x CLI made):
 
 | `LOCALSTACK_AUTH_TOKEN` | Image started                     | What works                                                                                                                                                                                       |
 | :---------------------- | :-------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
